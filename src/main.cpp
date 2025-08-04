@@ -264,27 +264,27 @@ int main() {
         bot.set_presence(dpp::presence(dpp::ps_idle, dpp::at_competing, "being the best Autocorrector!"));
 
         if (dpp::run_once<struct register_bot_commands>()) {
-            // bot.global_command_create(dpp::slashcommand("shun_names", "Outputs all forms of Shun's names", bot.me.id));
+            bot.global_command_create(dpp::slashcommand("shun_names", "Outputs all forms of Shun's names", bot.me.id));
 
-            // bot.global_command_create(dpp::slashcommand("toggle_autocorrect_messages", "MESSAGE_PERM users only: Can use this to toggle whether they want their messages autocorrected", bot.me.id));
+            bot.global_command_create(dpp::slashcommand("toggle_autocorrect_messages", "MESSAGE_PERM users only: Can use this to toggle whether they want their messages autocorrected", bot.me.id));
 
-            // bot.global_command_create(dpp::slashcommand("autocorrect", "Autocorrects a given query", bot.me.id)
-            //     .add_option(dpp::command_option(dpp::co_string, "query", "Query", true))
-            //     .add_option(dpp::command_option(dpp::co_string, "suggestion_number", "Number of suggestions (from 1 - 3)", true))
-            //     .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
-            // bot.global_command_create(dpp::slashcommand("top3", "Gives top 3 suggestions for a given query", bot.me.id)
-            //     .add_option(dpp::command_option(dpp::co_string, "query", "Query", true))
-            //     .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
+            bot.global_command_create(dpp::slashcommand("autocorrect", "Autocorrects a given query", bot.me.id)
+                .add_option(dpp::command_option(dpp::co_string, "query", "Query", true))
+                .add_option(dpp::command_option(dpp::co_string, "suggestion_number", "Number of suggestions (from 1 - 3)", true))
+                .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
+            bot.global_command_create(dpp::slashcommand("top3", "Gives top 3 suggestions for a given query", bot.me.id)
+                .add_option(dpp::command_option(dpp::co_string, "query", "Query", true))
+                .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
         
-            // bot.global_command_create(dpp::slashcommand("add_to_dict", "MESSAGE_PERM users only: Adds a custom word to the custom dictionary on top of 20k_texting.txt", bot.me.id)
-            //     .add_option(dpp::command_option(dpp::co_string, "query", "Word(s) to be added", true))
-            //     .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
+            bot.global_command_create(dpp::slashcommand("add_to_dict", "MESSAGE_PERM users only: Adds a custom word to the custom dictionary on top of 20k_texting.txt", bot.me.id)
+                .add_option(dpp::command_option(dpp::co_string, "query", "Word(s) to be added", true))
+                .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
 
-            // bot.global_command_create(dpp::slashcommand("remove_from_dict", "MESSAGE_PERM users only: Adds a custom word to the custom dictionary on top of 20k_texting.txt", bot.me.id)
-            //     .add_option(dpp::command_option(dpp::co_string, "query", "Word(s) to be removed", true))
-            //     .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
+            bot.global_command_create(dpp::slashcommand("remove_from_dict", "MESSAGE_PERM users only: Adds a custom word to the custom dictionary on top of 20k_texting.txt", bot.me.id)
+                .add_option(dpp::command_option(dpp::co_string, "query", "Word(s) to be removed", true))
+                .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
 
-            // bot.global_command_create(dpp::slashcommand("custom_dict", "MESSAGE_PERM users only: Outputs the custom dict of the bot", bot.me.id));
+            bot.global_command_create(dpp::slashcommand("custom_dict", "MESSAGE_PERM users only: Outputs the custom dict of the bot", bot.me.id));
         }
     });
 
