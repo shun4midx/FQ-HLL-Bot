@@ -66,7 +66,7 @@ int getCaseState(const std::string& word) {
     return 2;
 }
 
-std::unordered_map<std::string, std::vector<std::string>> autocor(const std::vector<std::string>& vec, int num) {
+void init_ac() {
     if (!ac) {
         AutocorrectorCfg cfg;
         cfg.dictionary_list = "test_files/20k_texting.txt";
@@ -78,6 +78,10 @@ std::unordered_map<std::string, std::vector<std::string>> autocor(const std::vec
             ac->add_dictionary(readFile(file));
         }
     }
+}
+
+std::unordered_map<std::string, std::vector<std::string>> autocor(const std::vector<std::string>& vec, int num) {
+    init_ac();
 
     Results res = ac->top3(vec);
 
@@ -150,18 +154,20 @@ std::string msg(const std::vector<std::string>& vec, const std::unordered_map<st
 
 std::string addToDict(const std::vector<std::string>& vec) {
     try {
+        init_ac();
+
         // See which words to add to dict
         std::vector<std::string> added = ac->add_dictionary(vec);
 
         if (added.empty()) {
-            return "These word(s) are already in the dictionary.";
+            return "The word" + std::string(vec.size() == 1 ? " is " : "s are ") + "already in the dictionary.";
         }
         
         // Write it into file
         std::filesystem::path file = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "files" / "custom_words.txt";
         std::vector<std::string> file_vec = readFile(file);
         
-        std::string output = "Successfully added the word(s): ";
+        std::string output = "Successfully added the word" + std::string(added.size() == 1 ? ": " : "s: ");
 
         for (int i = 0; i < added.size(); ++i) {
             output += added[i];
@@ -184,18 +190,24 @@ std::string addToDict(const std::vector<std::string>& vec) {
 
 std::string removeFromDict(const std::vector<std::string>& vec) {
     try {
+        init_ac();
+
         // See which words to remove from dict
         std::vector<std::string> removed = ac->remove_dictionary(vec);
 
         if (removed.empty()) {
-            return "None of these word(s) are in the dictionary";
+            if (vec.size() == 1) {
+                return "This word isn't in the dictionary";
+            } else {
+                return "None of these words are in the dictionary";
+            }
         }
         
         // Write it into file
         std::filesystem::path file = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "files" / "custom_words.txt";
         std::vector<std::string> file_vec = readFile(file);
         
-        std::string output = "Successfully removed the word(s): ";
+        std::string output = "Successfully removed the word" + std::string(removed.size() == 1 ? ": " : "s: ");
 
         for (int i = 0; i < removed.size(); ++i) {
             output += removed[i];

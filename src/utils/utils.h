@@ -23,6 +23,8 @@ void writeFile(std::filesystem::path& file, const std::vector<std::string>& vec)
 bool isLower(const char c);
 char toUpper(const char c);
 int getCaseState(const std::string& word);
+void init_ac();
+
 std::unordered_map<std::string, std::vector<std::string>> autocor(const std::vector<std::string>& vec, int num);
 
 std::string display(const std::vector<std::string>& vec, const std::unordered_map<std::string, std::vector<std::string>>& suggestions, const int num);
