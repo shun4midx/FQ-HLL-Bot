@@ -7,9 +7,14 @@
 
 // ======== INCLUDE ======== //
 #include "utils.h"
+#include "../env_parser/env_parser.h"
 
 // ======== STATIC VARIABLES ======== //
-static std::unique_ptr<Autocorrector> ac;
+static std::unordered_map<std::string, std::string> user_keyboards;
+static std::unordered_map<std::string, Autocorrector> user_ac;
+
+static std::unordered_map<std::string, std::vector<std::string>> env = parseEnvFile(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / ".env");
+static std::vector<std::string> MESSAGE_PERMS = env["MESSAGE_PERMS"];
 
 // ======== FUNCTION IMPLEMENTATION ======== //
 bool contains(const std::vector<std::string>& vec, const std::string& str) {
@@ -18,6 +23,10 @@ bool contains(const std::vector<std::string>& vec, const std::string& str) {
 
 
 // ~~~~~~~~ FILES ~~~~~~~~ //
+std::filesystem::path filefy(const std::string& str) {
+    return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "files" / str;
+}
+
 std::vector<std::string> readFile(const std::filesystem::path& file) {
     std::ifstream curr_file(file);
     std::vector<std::string> curr_arr;
@@ -30,6 +39,25 @@ std::vector<std::string> readFile(const std::filesystem::path& file) {
     curr_file.close();
 
     return curr_arr;
+}
+
+std::unordered_map<std::string, std::string> readDictionaryFile(const std::filesystem::path& file) {
+    std::ifstream curr_file(file);
+    std::unordered_map<std::string, std::string> curr_dict;
+    std::string text_line = "";
+
+    while (getline(curr_file, text_line)) {
+        std::istringstream ss(text_line);
+        std::string key, value;
+
+        if (std::getline(ss, key, ':') && std::getline(ss, value)) {
+            curr_dict[key] = value;
+        }
+    }
+    
+    curr_file.close();
+
+    return curr_dict;
 }
 
 void writeFile(std::filesystem::path& file, const std::vector<std::string>& vec) {
@@ -66,24 +94,151 @@ int getCaseState(const std::string& word) {
     return 2;
 }
 
-void init_ac() {
-    if (!ac) {
+void initAC(const std::string& user) {
+    std::cout << user << std::endl;
+    std::string keyboard = "qwerty";
+
+    if (user_keyboards.find(user) != user_keyboards.end()) {
+        keyboard = user_keyboards[user];
+    }
+
+    if (user_ac.find(user) == user_ac.end()) {
         AutocorrectorCfg cfg;
         cfg.dictionary_list = "test_files/20k_texting.txt";
-        ac = std::make_unique<Autocorrector>(cfg);
 
-        std::filesystem::path file = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "files" / "custom_words.txt";
-        
-        if (std::filesystem::exists(file)) {
-            ac->add_dictionary(readFile(file));
+        if (keyboard != "None") {
+            std::string keyboard_copy = keyboard;
+            std::transform(keyboard_copy.begin(), keyboard_copy.end(), keyboard_copy.begin(), ::tolower);
+
+            cfg.keyboard = keyboard_copy;
+        } else {
+            std::vector<std::string> keyb_vec;
+            if (keyboard != "None") {
+                std::istringstream iss(keyboard);
+               std::string word;
+                while (iss >> word) {
+                    keyb_vec.push_back(word);
+                }
+            }
+            cfg.keyboard = keyb_vec;
         }
+
+        auto ac = Autocorrector(cfg);
+
+        // Add dict
+        if (contains(MESSAGE_PERMS, user)) {
+            std::cout << "Got perms!" << std::endl;
+            std::filesystem::path file = filefy("custom_words.txt");
+            if (std::filesystem::exists(file)) {
+                ac.add_dictionary(readFile(file));
+                ac.save_dictionary();
+            }
+        }
+
+        user_ac[user] = ac;
     }
 }
 
-std::unordered_map<std::string, std::vector<std::string>> autocor(const std::vector<std::string>& vec, int num) {
-    init_ac();
+std::string setKeyboard(const std::string& user, const std::string& keyboard) {
+    std::filesystem::path keyb_file = filefy("user_keyboards.txt");
 
-    Results res = ac->top3(vec);
+    std::unordered_map<std::string, std::string> keyb_dict = readDictionaryFile(keyb_file);
+
+    bool unflagged_qwerty = false;
+
+    // Rewrite user_keyboards.txt
+    if (keyb_dict.find(user) == keyb_dict.end()) {
+        keyb_dict[user] = keyboard;
+
+        std::vector<std::string> keyb_dict_vec = readFile(keyb_file);
+        keyb_dict_vec.push_back(user + ":" + keyboard);
+
+        std::string keyboard_copy = keyboard;
+        std::transform(keyboard_copy.begin(), keyboard_copy.end(), keyboard_copy.begin(), ::tolower);
+
+        if (keyboard_copy == "qwerty") {
+            unflagged_qwerty = true;
+        }
+
+        writeFile(keyb_file, keyb_dict_vec);
+    } else if (keyb_dict[user] == keyboard) {
+        return "This was already your keyboard!";
+    } else {
+        keyb_dict[user] = keyboard;
+
+        std::vector<std::string> keyb_dict_vec = readFile(keyb_file);
+
+        std::string user_colon = user + ":";
+
+        keyb_dict_vec.erase(
+            std::remove_if(keyb_dict_vec.begin(), keyb_dict_vec.end(), [user_colon](const std::string& s) {
+                return s.rfind(user_colon, 0) == 0;
+            }),
+            keyb_dict_vec.end()
+        );
+
+        keyb_dict_vec.push_back(user + ":" + keyboard);
+
+        writeFile(keyb_file, keyb_dict_vec);
+    }
+
+    // Init new AC
+    if (user_ac.find(user) == user_ac.end()) {
+        initAC(user);
+    }
+
+    // Add to user profile
+    user_keyboards[user] = keyboard;
+
+    return (unflagged_qwerty ? "This was already your keyboard by default!" : "Successfuly changed your keyboard to " + keyboard + " for the rest of your upcoming suggestions!");
+}
+
+std::string getKeyboard(const std::string& user) {
+    std::string raw_keyboard, keyboard_copy;
+    if (user_keyboards.find(user) != user_keyboards.end()) {
+        raw_keyboard = user_keyboards[user];
+    } else {
+        std::filesystem::path keyb_file = filefy("user_keyboards.txt");
+
+        std::unordered_map<std::string, std::string> keyb_dict = readDictionaryFile(keyb_file);
+
+        if (keyb_dict.find(user) != keyb_dict.end()) {
+            initAC(keyb_dict[user]);
+            raw_keyboard = keyb_dict[user];
+        } else {
+            return "QWERTY (as set by default)";
+        }
+    }
+
+    keyboard_copy = raw_keyboard;
+    std::transform(keyboard_copy.begin(), keyboard_copy.end(), keyboard_copy.begin(), ::tolower);
+
+    if (keyboard_copy == "qwerty" || keyboard_copy == "none" || keyboard_copy == "qwertz" || keyboard_copy == "azerty" || keyboard_copy == "dvorak" || keyboard_copy == "colemak") {
+        std::transform(keyboard_copy.begin(), keyboard_copy.end(), keyboard_copy.begin(), ::toupper);
+        return keyboard_copy;
+    } else {
+        std::vector<std::string> vec;
+
+        std::istringstream iss(raw_keyboard);
+        std::string word;
+        while (iss >> word) {
+            vec.push_back(word);
+        }
+
+        std::string stringify = "";
+
+        for (std::string& str : vec) {
+            stringify += str + "\n";
+        }
+
+        return "```" + stringify + "```";
+    }
+}
+
+std::unordered_map<std::string, std::vector<std::string>> autocor(const std::vector<std::string>& vec, int num, const std::string& user) {
+    initAC(user);
+    
+    Results res = user_ac[user].top3(vec);
 
     for (int i = 0; i < vec.size(); ++i) {
         std::string str = vec[i];
@@ -152,19 +307,19 @@ std::string msg(const std::vector<std::string>& vec, const std::unordered_map<st
 }
 
 
-std::string addToDict(const std::vector<std::string>& vec) {
+std::string addToDict(const std::vector<std::string>& vec, const std::string& user) {
     try {
-        init_ac();
+        initAC(user);
 
         // See which words to add to dict
-        std::vector<std::string> added = ac->add_dictionary(vec);
+        std::vector<std::string> added = user_ac[user].add_dictionary(vec);
 
         if (added.empty()) {
             return "The word" + std::string(vec.size() == 1 ? " is " : "s are ") + "already in the dictionary.";
         }
         
         // Write it into file
-        std::filesystem::path file = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "files" / "custom_words.txt";
+        std::filesystem::path file = filefy("custom_words.txt");
         std::vector<std::string> file_vec = readFile(file);
         
         std::string output = "Successfully added the word" + std::string(added.size() == 1 ? ": " : "s: ");
@@ -188,12 +343,12 @@ std::string addToDict(const std::vector<std::string>& vec) {
     }
 }
 
-std::string removeFromDict(const std::vector<std::string>& vec) {
+std::string removeFromDict(const std::vector<std::string>& vec, const std::string& user) {
     try {
-        init_ac();
+        initAC(user);
 
         // See which words to remove from dict
-        std::vector<std::string> removed = ac->remove_dictionary(vec);
+        std::vector<std::string> removed = user_ac[user].remove_dictionary(vec);
 
         if (removed.empty()) {
             if (vec.size() == 1) {
@@ -204,7 +359,7 @@ std::string removeFromDict(const std::vector<std::string>& vec) {
         }
         
         // Write it into file
-        std::filesystem::path file = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "files" / "custom_words.txt";
+        std::filesystem::path file = filefy("custom_words.txt");
         std::vector<std::string> file_vec = readFile(file);
         
         std::string output = "Successfully removed the word" + std::string(removed.size() == 1 ? ": " : "s: ");

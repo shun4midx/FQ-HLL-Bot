@@ -7,12 +7,15 @@
 
 // ======== INCLUDE ======== //
 #include "env_parser.h"
+#include <iostream>
 
 // ======== FUNCTION IMPLEMENTATION ======== //
 std::unordered_map<std::string, std::vector<std::string>> parseEnvFile(const std::string& path) {
     std::unordered_map<std::string, std::vector<std::string>> env;
     std::ifstream infile(path);
     std::string line;
+
+    std::cout << path << std::endl;
 
     while (std::getline(infile, line)) {
         // Skip empty lines and lines starting with #

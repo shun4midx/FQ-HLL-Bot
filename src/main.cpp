@@ -58,7 +58,7 @@ int main() {
             if (!contains(MESSAGE_PERMS, event.command.usr.username)) {
                 event.reply("You do not have message perms!");
             } else {
-                std::filesystem::path file = std::filesystem::path(__FILE__).parent_path().parent_path() / "files" / "custom_words.txt";
+                std::filesystem::path file = filefy("custom_words.txt");
                 
                 if (!std::filesystem::exists(file)) {
                     event.reply("Empty!");
@@ -78,9 +78,25 @@ int main() {
                     event.reply("```" + stringify + "```");
                 }
             }
+        } else if (cmd == "get_keyboard") {
+            event.reply(getKeyboard(event.command.usr.username));
         }
 
         try {
+            if (cmd == "set_keyboard") {
+                std::string keyboard = "qwerty";
+                
+                auto keyb_param = event.get_parameter("keyboard");
+                if (std::holds_alternative<std::string>(keyb_param)) {
+                    std::string user_input = std::get<std::string>(keyb_param);
+                    if (!user_input.empty()) {
+                        keyboard = user_input;
+                    }
+                }
+
+                event.reply(setKeyboard(event.command.usr.username, keyboard));
+            }
+
             if (cmd == "autocorrect" || cmd == "top3") {
                 std::string query = std::get<std::string>(event.get_parameter("query"));
                 
@@ -127,7 +143,7 @@ int main() {
                     text_args.push_back(word);
                 }
 
-                event.reply(warnings + display(text_args, autocor(text_args, num), num));
+                event.reply(warnings + display(text_args, autocor(text_args, num, event.command.usr.username), num));
             }
 
             if (cmd == "add_to_dict" || cmd == "remove_from_dict") {
@@ -161,12 +177,12 @@ int main() {
     
                 // Add to dict
                 if (cmd == "add_to_dict") {
-                    event.reply(warnings + addToDict(text_args));
+                    event.reply(warnings + addToDict(text_args, event.command.usr.username));
                 }
     
                 // Remove from dict
                 if (cmd == "remove_from_dict") {
-                    event.reply(warnings + removeFromDict(text_args));
+                    event.reply(warnings + removeFromDict(text_args, event.command.usr.username));
                 }
             }
         } catch (const std::exception& e) {
@@ -220,7 +236,7 @@ int main() {
                         text_args.push_back(word);
                     }
 
-                    event.reply(display(text_args, autocor(text_args, num), num));
+                    event.reply(display(text_args, autocor(text_args, num, event.msg.author.username), num));
                 } else {
                     event.reply("Invalid format. Use: `!fqhll ac [text here] num` for several inputs or `!fqhll ac word num`");
                 }
@@ -234,7 +250,7 @@ int main() {
                     text_args.push_back(word);
                 }
 
-                event.reply(display(text_args, autocor(text_args, 3), 3));
+                event.reply(display(text_args, autocor(text_args, 3, event.msg.author.username), 3));
             }
 
             // ======== AUTORESPONDER ======== //
@@ -245,7 +261,7 @@ int main() {
             }
 
             // ======== AUTOCORRECT MESSAGES ======== //
-            if (correct_messages && contains(MESSAGE_PERMS, event.msg.author.username) && message[0] != '!') { // Don't autocorrect bot messages
+            if (correct_messages && contains(MESSAGE_PERMS, event.msg.author.username) && message[0] != '!' && (message[0] != '[' || message[message.length() - 1] != ']')) { // Don't autocorrect bot messages or autocorrect msgs
                 std::vector<std::string> text_args;
                 std::istringstream iss(message);
                 std::string word;
@@ -253,7 +269,7 @@ int main() {
                     text_args.push_back(word);
                 }
 
-                event.send(msg(text_args, autocor(text_args, 1)));
+                event.send(msg(text_args, autocor(text_args, 1, event.msg.author.username)));
             }
         }
     });
@@ -264,27 +280,50 @@ int main() {
         bot.set_presence(dpp::presence(dpp::ps_idle, dpp::at_competing, "being the best Autocorrector!"));
 
         if (dpp::run_once<struct register_bot_commands>()) {
-            bot.global_command_create(dpp::slashcommand("shun_names", "Outputs all forms of Shun's names", bot.me.id));
+            // bot.global_command_create(dpp::slashcommand("shun_names", "Outputs all forms of Shun's names", bot.me.id));
+            
+            // bot.global_command_create(dpp::slashcommand("set_keyboard", "Choose your keyboard you want to use (it's default to QWERTY)! Choose any of the autocomplete results, or if they do not suit you, please type your own with each row separated by a space!", bot.me.id)
+            //     .add_option(dpp::command_option(dpp::co_string, "keyboard", "Your keyboard", true).set_auto_complete(true)));
 
-            bot.global_command_create(dpp::slashcommand("toggle_autocorrect_messages", "MESSAGE_PERM users only: Can use this to toggle whether they want their messages autocorrected", bot.me.id));
+            bot.global_command_create(dpp::slashcommand("get_keyboard", "Outputs your current keyboard type", bot.me.id));
 
-            bot.global_command_create(dpp::slashcommand("autocorrect", "Autocorrects a given query", bot.me.id)
-                .add_option(dpp::command_option(dpp::co_string, "query", "Query", true))
-                .add_option(dpp::command_option(dpp::co_string, "suggestion_number", "Number of suggestions (from 1 - 3)", true))
-                .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
-            bot.global_command_create(dpp::slashcommand("top3", "Gives top 3 suggestions for a given query", bot.me.id)
-                .add_option(dpp::command_option(dpp::co_string, "query", "Query", true))
-                .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
+            // bot.global_command_create(dpp::slashcommand("toggle_autocorrect_messages", "MESSAGE_PERM users only: Can use this to toggle whether they want their messages autocorrected", bot.me.id));
+
+            // bot.global_command_create(dpp::slashcommand("autocorrect", "Autocorrects a given query", bot.me.id)
+            //     .add_option(dpp::command_option(dpp::co_string, "query", "Query", true))
+            //     .add_option(dpp::command_option(dpp::co_string, "suggestion_number", "Number of suggestions (from 1 - 3)", true))
+            //     .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
+            // bot.global_command_create(dpp::slashcommand("top3", "Gives top 3 suggestions for a given query", bot.me.id)
+            //     .add_option(dpp::command_option(dpp::co_string, "query", "Query", true))
+            //     .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
         
-            bot.global_command_create(dpp::slashcommand("add_to_dict", "MESSAGE_PERM users only: Adds a custom word to the custom dictionary on top of 20k_texting.txt", bot.me.id)
-                .add_option(dpp::command_option(dpp::co_string, "query", "Word(s) to be added", true))
-                .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
+            // bot.global_command_create(dpp::slashcommand("add_to_dict", "MESSAGE_PERM users only: Adds a custom word to the custom dictionary on top of 20k_texting.txt", bot.me.id)
+            //     .add_option(dpp::command_option(dpp::co_string, "query", "Word(s) to be added", true))
+            //     .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
 
-            bot.global_command_create(dpp::slashcommand("remove_from_dict", "MESSAGE_PERM users only: Adds a custom word to the custom dictionary on top of 20k_texting.txt", bot.me.id)
-                .add_option(dpp::command_option(dpp::co_string, "query", "Word(s) to be removed", true))
-                .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
+            // bot.global_command_create(dpp::slashcommand("remove_from_dict", "MESSAGE_PERM users only: Adds a custom word to the custom dictionary on top of 20k_texting.txt", bot.me.id)
+            //     .add_option(dpp::command_option(dpp::co_string, "query", "Word(s) to be removed", true))
+            //     .add_option(dpp::command_option(dpp::co_string, "separator", "A single character separator between queries, defaults to a space")));
 
-            bot.global_command_create(dpp::slashcommand("custom_dict", "MESSAGE_PERM users only: Outputs the custom dict of the bot", bot.me.id));
+            // bot.global_command_create(dpp::slashcommand("custom_dict", "MESSAGE_PERM users only: Outputs the custom dict of the bot", bot.me.id));
+        }
+    });
+
+    // ======== AUTOCOMPLETE ======== //
+    bot.on_autocomplete([&bot](const dpp::autocomplete_t & event) {
+        for (auto & opt : event.options) {
+            if (opt.focused) {
+                std::string uservalue = std::get<std::string>(opt.value);
+                bot.interaction_response_create(event.command.id, event.command.token, dpp::interaction_response(dpp::ir_autocomplete_reply)
+                    .add_autocomplete_choice(dpp::command_option_choice("QWERTY", std::string("QWERTY")))
+                    .add_autocomplete_choice(dpp::command_option_choice("None", std::string("None")))
+                    .add_autocomplete_choice(dpp::command_option_choice("QWERTZ", std::string("QWERTZ")))
+                    .add_autocomplete_choice(dpp::command_option_choice("AZERTY", std::string("AZERTY")))
+                    .add_autocomplete_choice(dpp::command_option_choice("Dvorak", std::string("Dvorak")))
+                    .add_autocomplete_choice(dpp::command_option_choice("Colemak", std::string("Colemak")))
+                );
+                break;
+            }
         }
     });
 
