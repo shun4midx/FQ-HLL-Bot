@@ -95,7 +95,6 @@ int getCaseState(const std::string& word) {
 }
 
 void initAC(const std::string& user) {
-    std::cout << user << std::endl;
     std::string keyboard = "qwerty";
 
     if (user_keyboards.find(user) != user_keyboards.end()) {
@@ -127,7 +126,6 @@ void initAC(const std::string& user) {
 
         // Add dict
         if (contains(MESSAGE_PERMS, user)) {
-            std::cout << "Got perms!" << std::endl;
             std::filesystem::path file = filefy("custom_words.txt");
             if (std::filesystem::exists(file)) {
                 ac.add_dictionary(readFile(file));
